@@ -19,75 +19,234 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
+// Serve the login form
+app.get('/login', (req, res) => {
+  res.send(`
+    <html>
+    <head>
+    <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f1f1f1;
+    }
+
+    .container {
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .container label,
+    .container input {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+
+    .container input[type="email"],
+    .container input[type="password"] {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .container button[type="submit"] {
+      padding: 10px 20px;
+      background-color: #4caf50;
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .container button[type="submit"]:hover {
+      background-color: #45a049;
+    }
+
+    .container .signup-link {
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    .container .message {
+      margin-top: 10px;
+      text-align: center;
+      font-weight: bold;
+    }
+  </style>
+    </head>
+    <body>
+      <div class="container">
+        <form id="login-form" method="POST" action="/login">
+          <label for="email">Email:</label>
+          <input type="email" id="email" name="email" required>
+
+          <label for="password">Password:</label>
+          <input type="password" id="password" name="password" required>
+
+          <button type="submit">Login</button>
+        </form>
+        <div id="message" class="message"></div>
+        <div id="error" class="error"></div>
+
+        <script>
+          // Handle form submission
+          document.getElementById('login-form').addEventListener('submit', function (event) {
+            event.preventDefault(); // Prevent the default form submission
+
+            // Get form values
+            var email = document.getElementById('email').value;
+            var password = document.getElementById('password').value;
+
+            // Create the request body object
+            var requestBody = {
+              email: email,
+              password: password
+            };
+
+            // Send the login request to the backend API
+            fetch('/login', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(requestBody)
+            })
+              .then(function (response) {
+                if (response.ok) {
+                  return response.text();
+                } else {
+                  throw new Error('Login failed');
+                }
+              })
+              .then(function (data) {
+                // Handle the response from the backend
+                console.log(data);
+                document.getElementById('message').textContent = data;
+                document.getElementById('error').textContent = '';
+              })
+              .catch(function (error) {
+                console.error('Error:', error);
+                document.getElementById('message').textContent = '';
+                document.getElementById('error').textContent = 'Invalid email or password';
+              });
+          });
+        </script>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// Handle login request
+app.post('/login', (req, res) => {
+  const { email, password } = req.body;
+
+  // Check if the user exists in the database
+  pool.getConnection((err, connection) => {
+    if (err) {
+      console.error('Error connecting to the database:', err);
+      return res.status(500).send('Error connecting to the database');
+    }
+
+    // Execute the SQL query to check if the user exists
+    connection.query(
+      'SELECT * FROM users WHERE email = ? AND password = ?',
+      [email, password],
+      (error, results) => {
+        connection.release(); // Release the connection
+
+        if (error) {
+          console.error('Error checking user:', error);
+          return res.status(500).send('Error checking user');
+        }
+
+        if (results.length === 0) {
+          // User does not exist or invalid credentials
+          return res.status(401).send('Invalid email or password');
+        }
+
+        // User found, login successful
+        console.log('Login successful:', email);
+        res.send('Login successful!');
+      }
+    );
+  });
+});
+
 // Serve the signup form
 app.get('/signup', (req, res) => {
   res.send(`
-  <html>
-  <head>
+    <html>
+    <head>
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        background-color: #f1f1f1;
-      }
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f1f1f1;
+    }
 
-      .container {
-        max-width: 400px;
-        margin: 0 auto;
-        padding: 20px;
-        background-color: #fff;
-        border-radius: 5px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-      }
+    .container {
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
 
-      .container label,
-      .container input {
-        display: block;
-        width: 100%;
-        margin-bottom: 10px;
-      }
+    .container label,
+    .container input {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+    }
 
-      .container input[type="text"],
-      .container input[type="email"],
-      .container input[type="password"] {
-        padding: 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-      }
+    .container input[type="text"],
+    .container input[type="email"],
+    .container input[type="password"] {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
 
-      .container button[type="submit"] {
-        padding: 10px 20px;
-        background-color: #4caf50;
-        border: none;
-        color: #fff;
-        border-radius: 4px;
-        cursor: pointer;
-      }
+    .container button[type="submit"] {
+      padding: 10px 20px;
+      background-color: #4caf50;
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
 
-      .container button[type="submit"]:hover {
-        background-color: #45a049;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <form method="POST" action="/signup">
-        <label for="name">Name:</label>
-        <input type="text" id="name" name="name" required>
+    .container button[type="submit"]:hover {
+      background-color: #45a049;
+    }
+  </style>
+    </head>
+    <body>
+      <div class="container">
+        <form method="POST" action="/signup">
+          <label for="name">Name:</label>
+          <input type="text" id="name" name="name" required>
 
-        <label for="email">Email:</label>
-        <input type="email" id="email" name="email" required>
+          <label for="email">Email:</label>
+          <input type="email" id="email" name="email" required>
 
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required>
+          <label for="password">Password:</label>
+          <input type="password" id="password" name="password" required>
 
-        <button type="submit">Sign up</button>
-      </form>
-    </div>
-  </body>
-</html>
-`);
+          <button type="submit">Sign up</button>
+        </form>
+      </div>
+    </body>
+    </html>
+  `);
 });
 
+// Handle signup request
 app.post('/signup', (req, res) => {
   const { name, email, password } = req.body;
 
