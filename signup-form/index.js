@@ -1,6 +1,8 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 const app = express();
 const port = 3000;
@@ -152,10 +154,10 @@ app.post('/login', (req, res) => {
       return res.status(500).send('Error connecting to the database');
     }
 
-    // Execute the SQL query to check if the user exists
+    // Execute the SQL query to retrieve the hashed password for the email
     connection.query(
-      'SELECT * FROM users WHERE email = ? AND password = ?',
-      [email, password],
+      'SELECT password FROM users WHERE email = ?',
+      [email],
       (error, results) => {
         connection.release(); // Release the connection
 
@@ -169,14 +171,28 @@ app.post('/login', (req, res) => {
           return res.status(401).send('Invalid email or password');
         }
 
-        // User found, login successful
-        console.log('Login successful:', email);
-        res.send('Login successful!');
+        const hashedPassword = results[0].password;
+
+        // Compare the entered password with the stored hashed password
+        bcrypt.compare(password, hashedPassword, (compareError, isMatch) => {
+          if (compareError) {
+            console.error('Error comparing passwords:', compareError);
+            return res.status(500).send('Error comparing passwords');
+          }
+
+          if (!isMatch) {
+            // Invalid password
+            return res.status(401).send('Invalid email or password');
+          }
+
+          // User found, login successful
+          console.log('Login successful:', email);
+          res.send('Login successful!');
+        });
       }
     );
   });
 });
-
 // Serve the signup form
 app.get('/signup', (req, res) => {
   res.send(`
@@ -274,23 +290,32 @@ app.post('/signup', (req, res) => {
           return res.send('User already exists');
         }
 
-        // User does not exist, insert the user into the database
-        connection.query(
-          'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
-          [name, email, password],
-          (insertError) => {
+        // User does not exist, hash and salt the password
+        bcrypt.hash(password, saltRounds, (hashError, hashedPassword) => {
+          if (hashError) {
             connection.release(); // Release the connection
-
-            if (insertError) {
-              console.error('Error inserting user into the database:', insertError);
-              return res.status(500).send('Error inserting user into the database');
-            }
-
-            console.log(`New user signup: ${name}, ${email}, ${password}`);
-
-            res.send('Signup successful!');
+            console.error('Error hashing password:', hashError);
+            return res.status(500).send('Error hashing password');
           }
-        );
+
+          // Insert the user into the database with the hashed password
+          connection.query(
+            'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+            [name, email, hashedPassword],
+            (insertError) => {
+              connection.release(); // Release the connection
+
+              if (insertError) {
+                console.error('Error inserting user into the database:', insertError);
+                return res.status(500).send('Error inserting user into the database');
+              }
+
+              console.log(`New user signup: ${name}, ${email}, ${hashedPassword}`);
+
+              res.send('Signup successful!');
+            }
+          );
+        });
       }
     );
   });
