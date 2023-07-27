@@ -1,73 +1,27 @@
-// const express = require('express');
-// const router = express.Router();
-// const db = require('../util/database');
-// const path = require('path');
-
-// // Serve the login form
-// router.get('/', (req, res) => {
-//     // Render the login.html file
-//     res.sendFile(path.join(__dirname, '../public/html/login.html'));
-// });
-
-// // Serve the signup form CSS
-// router.get('/login.css', (req, res) => {
-//     // Serve the static file
-//     res.sendFile(path.join(__dirname, '../public/css/login.css'));
-// });
-
-// router.post('/login', (req, res) => {
-//     const { email, password } = req.body;
-//     console.log('Received form data:');
-//     console.log('Email:', email);
-//     console.log('Password:', password);
-//     console.log('Before getConnection')
-
-//     // Check if the user exists in the database
-//     db.getConnection((err, connection) => {
-//         if (err) {
-//             console.error('Error connecting to the database:', err);
-//             return res.status(500).send('Error connecting to the database');
-//         }
-
-//         connection.query(
-//             'SELECT * FROM users WHERE email = ? AND password = ?',
-//             [email, password],
-//             (error, results) => {
-//                 connection.release();
-
-//                 if (error) {
-//                     console.error('Error checking user:', error);
-//                     return res.status(500).send('Error checking user');
-//                 }
-
-//                 console.log('Query results:', results);
-
-//                 if (results.length === 0) {
-//                     return res.status(401).send('Invalid email or password');
-//                 }
-
-//                 // Assuming you have a user session management middleware,
-//                 // you can set the user's session here
-//                 req.session.user = results[0];
-
-//                 // Redirect the user to the dashboard
-//                 res.redirect('/dashboard');
-//             }
-//         );
-//     });
-// });
-
-// // Serve static files
-// router.use('/public', express.static(path.join(__dirname, '../public')));
-
-// module.exports = router;
-
-// routes/login.js
-
 const express = require('express');
 const router = express.Router();
-const db = require('../util/database');
 const path = require('path');
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { Sequelize, DataTypes } = require('sequelize');
+
+// Create a Sequelize instance
+const sequelize = new Sequelize('bookingapp', 'root', 'Mishra21@', {
+    host: 'localhost',
+    dialect: 'mysql',
+});
+
+// Define the User model
+const User = sequelize.define('User', {
+    email: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+    password: {
+        type: DataTypes.STRING,
+        allowNull: false,
+    },
+});
 
 // Serve the login form
 router.get('/', (req, res) => {
@@ -83,53 +37,78 @@ router.get('/login.css', (req, res) => {
 
 // Serve the expense form
 router.get('/expence', (req, res) => {
-    // Render the expense.html file
-    res.sendFile(path.join(__dirname, '../public/html/expence.html'));
+    // Verify if the user is authenticated (i.e., has a valid token)
+    const token = req.headers.authorization; // Assuming the token is sent in the 'Authorization' header
+
+    // Verify the token using the secret key
+    jwt.verify(token, secretKey, (err, decodedToken) => {
+        if (err) {
+            // If the token is invalid or expired, redirect the user to the login page
+            res.redirect('/');
+        } else {
+            // If the token is valid, render the expense.html file
+            res.sendFile(path.join(__dirname, '../public/html/expence.html'));
+        }
+    });
 });
 
-router.post('/', (req, res) => {
+const generateRandomKey = () => {
+    return crypto.randomBytes(32).toString('hex');
+};
+
+// Store the generated secret key in a variable
+const secretKey = generateRandomKey();
+
+// router.post('/', async (req, res) => {
+//     const { email, password } = req.body;
+//     console.log('Received form data:');
+//     console.log('Email:', email);
+//     console.log('Password:', password);
+
+//     try {
+//         // Check if the user exists in the database
+//         const user = await User.findOne({ where: { email, password } });
+
+//         if (!user) {
+//             return res.status(401).send('Invalid email or password');
+//         }
+
+//         // Generate the JWT token using the secret key
+//         const token = jwt.sign({ id: user.id, email: user.email }, secretKey, { expiresIn: '1h' });
+
+//         // Send the token back in the response
+//         res.status(200).json({ message: 'Login successful', token: token });
+
+//     } catch (error) {
+//         console.error('Error checking user:', error);
+//         res.status(500).send('Error checking user');
+//     )};
+
+router.post('/', async (req, res) => {
     const { email, password } = req.body;
     console.log('Received form data:');
     console.log('Email:', email);
     console.log('Password:', password);
-    console.log('Before getConnection')
 
-    // Check if the user exists in the database
-    db.getConnection((err, connection) => {
-        if (err) {
-            console.error('Error connecting to the database:', err);
-            return res.status(500).send('Error connecting to the database');
+    try {
+        // Check if the user exists in the database
+        const user = await User.findOne({ where: { email, password } });
+
+        if (!user) {
+            return res.status(401).send('Invalid email or password');
         }
 
-        connection.query(
-            'SELECT * FROM users WHERE email = ? AND password = ?',
-            [email, password],
-            (error, results) => {
-                connection.release();
+        // Generate the JWT token using the secret key and include user ID in the payload
+        const token = jwt.sign({ id: user.id, email: user.email }, secretKey, { expiresIn: '1h' });
 
-                if (error) {
-                    console.error('Error checking user:', error);
-                    return res.status(500).send('Error checking user');
-                }
+        // Send the token back in the response
+        res.status(200).json({ message: 'Login successful', token: token });
 
-                console.log('Query results:', results);
-
-                if (results.length === 0) {
-                    return res.status(401).send('Invalid email or password');
-                }
-
-                // Assuming you have a user session management middleware,
-                // you can set the user's session here
-                req.session.user = results[0];
-
-                // Redirect the user to the dashboard or expense page
-                res.redirect('/expence'); // Modify this route as per your application's logic
-            }
-        );
-    });
+    } catch (error) {
+        console.error('Error checking user:', error);
+        res.status(500).send('Error checking user');
+    }
 });
 
+module.exports = router
 
-
-
-module.exports = router;

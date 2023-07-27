@@ -1,128 +1,3 @@
-<!-- <html>
-
-<head>
-
-</head>
-
-<body>
-    <h1>Welcome to Expense Tracker</h1>
-    <h2>Add Expense</h2>
-    <div class="container">
-        <form id="expense-form" method="POST" action="/addexpense">
-            <label for="amount">Amount:</label>
-            <input type="number" id="amount" name="amount" required>
-
-            <label for="description">Description:</label>
-            <input type="text" id="description" name="description" required>
-
-            <label for="category">Category:</label>
-            <select id="category" name="category" required>
-                <option value="Food">Food</option>
-                <option value="Petrol">Petrol</option>
-                <option value="Salary">Salary</option>
-
-            </select>
-
-            <button type="submit">Add Expense</button>
-        </form>
-    </div>
-    <h2>Expense History</h2>
-    <table id="expense-table">
-        <thead>
-            <tr>
-                <th>Amount</th>
-                <th>Description</th>
-                <th>Category</th>
-            </tr>
-        </thead>
-        <tbody id="expense-data"></tbody>
-    </table>
-
-    <script>
-        // Fetch expenses on page load
-        window.addEventListener('DOMContentLoaded', () => {
-            fetchExpenses();
-        });
-
-        // Handle form submission
-        document.getElementById('expense-form').addEventListener('submit', function (event) {
-            event.preventDefault();
-
-            // Get form values
-            var amount = document.getElementById('amount').value;
-            var description = document.getElementById('description').value;
-            var category = document.getElementById('category').value;
-
-            // Create the request body object
-            var requestBody = {
-                amount: amount,
-                description: description,
-                category: category
-            };
-
-            // Send the expense data to the backend API
-            fetch('/addexpense', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            })
-                .then(function (response) {
-                    if (response.ok) {
-                        return response.json();
-                    } else {
-                        throw new Error('Failed to add expense');
-                    }
-                })
-                .then(function (data) {
-                    // Clear form fields
-                    document.getElementById('amount').value = '';
-                    document.getElementById('description').value = '';
-
-                    // Fetch expenses again to update the table
-                    fetchExpenses();
-                })
-                .catch(function (error) {
-                    console.error('Error:', error);
-                });
-        });
-
-        // Fetch expenses from the backend API
-        function fetchExpenses() {
-            fetch('/expenses')
-                .then(function (response) {
-                    if (response.ok) {
-                        return response.json();
-                    } else {
-                        throw new Error('Failed to fetch expenses');
-                    }
-                })
-                .then(function (data) {
-                    // Clear previous expense data in the table
-                    var expenseDataElement = document.getElementById('expense-data');
-                    expenseDataElement.innerHTML = '';
-
-                    // Add each expense as a row in the table
-                    data.forEach(function (expense) {
-                        var row = document.createElement('tr');
-                        row.innerHTML = `
-                  <td>${expense.amount}</td>
-                  <td>${expense.description}</td>
-                  <td>${expense.category}</td>
-                `;
-                        expenseDataElement.appendChild(row);
-                    });
-                })
-                .catch(function (error) {
-                    console.error('Error:', error);
-                });
-        }
-    </script>
-</body>
-
-</html> -->
-
 <!DOCTYPE html>
 <html>
 
@@ -170,15 +45,11 @@
                 category: category
             };
 
-            // Send the product data to the backend API using Axios
-            axios.post('/addproduct', requestBody)
+            // Send the product details to the server
+            axios.post('/expence/addexpense', requestBody)
                 .then(function (response) {
                     if (response.status === 200) {
-                        // Clear form fields
-                        document.getElementById('price').value = '';
-                        document.getElementById('name').value = '';
-
-                        // Fetch products again to update the list
+                        // Product added successfully, fetch products again to update the list
                         fetchProducts();
                     } else {
                         throw new Error('Failed to add product');
@@ -189,20 +60,72 @@
                 });
         }
 
-        // Fetch products from the backend API
         function fetchProducts() {
-            axios.get('/products')
+            axios.get('/products') // Use the correct endpoint here
+                .then(function (response) {
+                    if (response.status === 200) {
+                        // Clear form fields
+                        document.getElementById('price').value = '';
+                        document.getElementById('name').value = '';
+                        document.getElementById('category').value = '';
+
+                        // Fetch products again to update the list
+                        fetchProducts();
+                    } else {
+                        throw new Error('Failed to add product');
+                    }
+                })
+                .catch(function (error) {
+                    console.error('Error:', error);
+                });
+
+        }
+        // Function to create a delete button for each product
+        function createDeleteButton(productId) {
+            var deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.onclick = function () {
+                deleteProduct(productId);
+            };
+            return deleteButton;
+        }
+        // Function to delete a product
+        function deleteProduct(productId) {
+            // Get the user's authentication token from localStorage
+            const token = localStorage.getItem('token');
+
+            axios.delete(`/expence/products/${productId}`, {
+                headers: {
+                    Authorization: token,
+                },
+            })
+                .then((response) => {
+                    // Handle the response (if needed)
+                    
+                    fetchProducts();
+                })
+                .catch((error) => {
+                    console.error('Error deleting product:', error);
+                });
+        }
+
+
+        // Updated fetchProducts function to include delete buttons
+        function fetchProducts() {
+            axios.get('/expence/products')
                 .then(function (response) {
                     if (response.status === 200) {
                         // Clear previous product data in the list
                         var productListElement = document.getElementById('listOfProducts');
                         productListElement.innerHTML = '';
 
-                        // Add each product as a list item
+                        // Add each product as a list item with a delete button
                         var data = response.data;
                         data.forEach(function (product) {
                             var listItem = document.createElement('li');
                             listItem.textContent = `${product.name} - $${product.price}`;
+                            var deleteButton = createDeleteButton(product.id); // Assuming the product has an 'id' field
+                            listItem.appendChild(deleteButton);
                             productListElement.appendChild(listItem);
                         });
                     } else {
@@ -213,6 +136,7 @@
                     console.error('Error:', error);
                 });
         }
+
 
         // Fetch products on page load
         window.addEventListener('DOMContentLoaded', function () {
