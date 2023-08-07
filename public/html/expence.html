@@ -2,7 +2,6 @@
 <html>
 
 <head>
-
 </head>
 
 <body>
@@ -24,125 +23,12 @@
                 <button type="submit" id="btn">Add Product</button>
             </form>
             <ul id="listOfProducts"></ul>
+            <button id="rzp-button">Buy Premium</button>
+            <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+            <script src="../script/expence.js"></script>
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script>
-        // Handle form submission
-        function saveToMySQL(event) {
-            event.preventDefault();
-
-            // Get form values
-            var price = document.getElementById('price').value;
-            var name = document.getElementById('name').value;
-            var category = document.getElementById('category').value;
-
-            // Create the request body object
-            var requestBody = {
-                price: price,
-                name: name,
-                category: category
-            };
-
-            // Send the product details to the server
-            axios.post('/expence/addexpense', requestBody)
-                .then(function (response) {
-                    if (response.status === 200) {
-                        // Product added successfully, fetch products again to update the list
-                        fetchProducts();
-                    } else {
-                        throw new Error('Failed to add product');
-                    }
-                })
-                .catch(function (error) {
-                    console.error('Error:', error);
-                });
-        }
-
-        function fetchProducts() {
-            axios.get('/products') // Use the correct endpoint here
-                .then(function (response) {
-                    if (response.status === 200) {
-                        // Clear form fields
-                        document.getElementById('price').value = '';
-                        document.getElementById('name').value = '';
-                        document.getElementById('category').value = '';
-
-                        // Fetch products again to update the list
-                        fetchProducts();
-                    } else {
-                        throw new Error('Failed to add product');
-                    }
-                })
-                .catch(function (error) {
-                    console.error('Error:', error);
-                });
-
-        }
-        // Function to create a delete button for each product
-        function createDeleteButton(productId) {
-            var deleteButton = document.createElement('button');
-            deleteButton.textContent = 'Delete';
-            deleteButton.onclick = function () {
-                deleteProduct(productId);
-            };
-            return deleteButton;
-        }
-        // Function to delete a product
-        function deleteProduct(productId) {
-            // Get the user's authentication token from localStorage
-            const token = localStorage.getItem('token');
-
-            axios.delete(`/expence/products/${productId}`, {
-                headers: {
-                    Authorization: token,
-                },
-            })
-                .then((response) => {
-                    // Handle the response (if needed)
-                    
-                    fetchProducts();
-                })
-                .catch((error) => {
-                    console.error('Error deleting product:', error);
-                });
-        }
-
-
-        // Updated fetchProducts function to include delete buttons
-        function fetchProducts() {
-            axios.get('/expence/products')
-                .then(function (response) {
-                    if (response.status === 200) {
-                        // Clear previous product data in the list
-                        var productListElement = document.getElementById('listOfProducts');
-                        productListElement.innerHTML = '';
-
-                        // Add each product as a list item with a delete button
-                        var data = response.data;
-                        data.forEach(function (product) {
-                            var listItem = document.createElement('li');
-                            listItem.textContent = `${product.name} - $${product.price}`;
-                            var deleteButton = createDeleteButton(product.id); // Assuming the product has an 'id' field
-                            listItem.appendChild(deleteButton);
-                            productListElement.appendChild(listItem);
-                        });
-                    } else {
-                        throw new Error('Failed to fetch products');
-                    }
-                })
-                .catch(function (error) {
-                    console.error('Error:', error);
-                });
-        }
-
-
-        // Fetch products on page load
-        window.addEventListener('DOMContentLoaded', function () {
-            fetchProducts();
-        });
-    </script>
 </body>
 
 </html>
